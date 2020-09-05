@@ -923,7 +923,7 @@ const defaultIgnore = [
 function collectAllFiles(cwd: string, useYarn = false, usePackageManager: "yarn" | "npm" | "pnpm" = "npm", dependencyEntryPoints?: string[]): Promise<string[]> {
 	return getDependencies(cwd, useYarn, usePackageManager, dependencyEntryPoints).then(deps => {
 		const promises: Promise<string[]>[] = deps.map(dep => {
-			return glob('**', { cwd: dep, nodir: true, dot: true, ignore: 'node_modules/**' })
+			return glob('**', { cwd: dep, nodir: true, dot: true, follow: usePackageManager == "pnpm", ignore: 'node_modules/**' })
 				.then(files => files
 					.map(f => path.relative(cwd, path.join(dep, f)))
 					.map(f => f.replace(/\\/g, '/')));

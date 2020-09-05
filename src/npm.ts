@@ -1,7 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as cp from 'child_process';
-import * as denodeify from 'denodeify';
 import * as parseSemver from 'parse-semver';
 import * as _ from 'lodash';
 import { CancellationToken } from './util';
@@ -113,16 +112,13 @@ async function asPnpmDependency(prefix: string, tree: PnpmTreeNode, prune: boole
 	}
 
 	let name = tree.name || tree.from;
-	let s = path.sep;
 
-	const dependencyPath = await denodeify(fs.realpath)(`${prefix}${s}${name}`);
+	const dependencyPath = path.join(prefix, name);
 	const children: YarnDependency[] = [];
-
-	console.log(dependencyPath);
 
 	const deps = await Promise.all(
 		_.values(tree.dependencies || {})
-			.map(child => asPnpmDependency(`${dependencyPath}${s}..`, child, prune))
+			.map(child => asPnpmDependency(prefix, child, prune))
 		);
 	for(const dep of deps) {
 		if (dep) {

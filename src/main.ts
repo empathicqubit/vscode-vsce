@@ -62,9 +62,10 @@ module.exports = function (argv: string[]): void {
 		.command('ls')
 		.description('Lists all the files that will be published')
 		.option('--yarn', 'Use yarn instead of npm')
+		.option('--packageManager [yarn|npm|pnpm]', 'Use yarn, npm, or pnpm package manager')
 		.option('--packagedDependencies <path>', 'Select packages that should be published only (includes dependencies)', (val, all) => all ? all.concat(val) : [val], undefined)
 		.option('--ignoreFile [path]', 'Indicate alternative .vscodeignore')
-		.action(({ yarn, packagedDependencies, ignoreFile }) => main(ls(undefined, yarn, packagedDependencies, ignoreFile)));
+		.action(({ yarn, packagedDependencies, ignoreFile, packageManager }) => main(ls(undefined, yarn, packagedDependencies, ignoreFile, packageManager)));
 
 	program
 		.command('package')
@@ -74,9 +75,10 @@ module.exports = function (argv: string[]): void {
 		.option('--baseContentUrl [url]', 'Prepend all relative links in README.md with this url.')
 		.option('--baseImagesUrl [url]', 'Prepend all relative image links in README.md with this url.')
 		.option('--yarn', 'Use yarn instead of npm')
+		.option('--packageManager [yarn|npm|pnpm]', 'Use yarn, npm, or pnpm package manager')
 		.option('--ignoreFile [path]', 'Indicate alternative .vscodeignore')
 		.option('--noGitHubIssueLinking', 'Prevent automatic expansion of GitHub-style issue syntax into links')
-		.action(({ out, githubBranch, baseContentUrl, baseImagesUrl, yarn, ignoreFile, noGitHubIssueLinking }) => main(packageCommand({ packagePath: out, githubBranch, baseContentUrl, baseImagesUrl, useYarn: yarn, ignoreFile, expandGitHubIssueLinks: noGitHubIssueLinking })));
+		.action(({ out, githubBranch, baseContentUrl, baseImagesUrl, yarn, ignoreFile, noGitHubIssueLinking, packageManager }) => main(packageCommand({ packagePath: out, githubBranch, baseContentUrl, baseImagesUrl, useYarn: yarn, ignoreFile, expandGitHubIssueLinks: noGitHubIssueLinking, usePackageManager: packageManager })));
 
 	program
 		.command('publish [<version>]')
@@ -88,10 +90,11 @@ module.exports = function (argv: string[]): void {
 		.option('--baseContentUrl [url]', 'Prepend all relative links in README.md with this url.')
 		.option('--baseImagesUrl [url]', 'Prepend all relative image links in README.md with this url.')
 		.option('--yarn', 'Use yarn instead of npm while packing extension files')
+		.option('--packageManager [yarn|npm|pnpm]', 'Use yarn, npm, or pnpm package manager')
 		.option('--noVerify')
 		.option('--ignoreFile [path]', 'Indicate alternative .vscodeignore')
 		.option('--web', 'Experimental flag to enable publishing web extensions. Note: This is supported only for selected extensions.')
-		.action((version, { pat, message, packagePath, githubBranch, baseContentUrl, baseImagesUrl, yarn, noVerify, ignoreFile, web }) => main(publish({ pat, commitMessage: message, version, packagePath, githubBranch, baseContentUrl, baseImagesUrl, useYarn: yarn, noVerify, ignoreFile, web })));
+		.action((version, { pat, message, packagePath, githubBranch, baseContentUrl, baseImagesUrl, yarn, noVerify, ignoreFile, web, packageManager }) => main(publish({ pat, commitMessage: message, version, packagePath, githubBranch, baseContentUrl, baseImagesUrl, useYarn: yarn, noVerify, ignoreFile, web, usePackageManager: packageManager })));
 
 	program
 		.command('unpublish [<extensionid>]')

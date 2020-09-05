@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as cp from 'child_process';
+import * as denodeify from 'denodeify';
 import * as parseSemver from 'parse-semver';
 import * as _ from 'lodash';
 import { CancellationToken } from './util';
@@ -71,6 +72,13 @@ export interface YarnDependency {
 	children: YarnDependency[];
 }
 
+interface PnpmTreeNode {
+	name: string;
+	from: string;
+	version: string;
+	dependencies: { [key:string]:PnpmTreeNode };
+}
+
 function asYarnDependency(prefix: string, tree: YarnTreeNode, prune: boolean): YarnDependency | null {
 	if (prune && /@[\^~]/.test(tree.name)) {
 		return null;
@@ -93,6 +101,32 @@ function asYarnDependency(prefix: string, tree: YarnTreeNode, prune: boolean): Y
 
 		if (dep) {
 			children.push(dep);
+		}
+	}
+
+	return { name, path: dependencyPath, children };
+}
+
+async function asPnpmDependency(prefix: string, tree: PnpmTreeNode, prune: boolean): Promise<YarnDependency | null> {
+	if (prune && /^[\^~]/.test(tree.version)) {
+		return null;
+	}
+
+	let name = tree.name || tree.from;
+	let s = path.sep;
+
+	const dependencyPath = await denodeify(fs.realpath)(`${prefix}${s}${name}`);
+	const children: YarnDependency[] = [];
+
+	console.log(dependencyPath);
+
+	const deps = await Promise.all(
+		_.values(tree.dependencies || {})
+			.map(child => asPnpmDependency(`${dependencyPath}${s}..`, child, prune))
+		);
+	for(const dep of deps) {
+		if (dep) {
+			children.push(dep); 
 		}
 	}
 
@@ -145,6 +179,30 @@ function selectYarnDependencies(deps: YarnDependency[], packagedDependencies: st
 	return reached.values;
 }
 
+async function getPnpmProductionDependencies(cwd: string, packagedDependencies?: string[]): Promise<YarnDependency[]> {
+	const raw = await new Promise<string>((c, e) => cp.exec('pnpm list --depth 1000000 --prod --json --silent', { cwd, encoding: 'utf8', env: { ...process.env }, maxBuffer: 5000 * 1024 }, (err, stdout) => err ? e(err) : c(stdout)));
+	const match = /^\s*\[[\s\S]*\]\s*$/m.exec(raw);
+
+	if (!match || match.length !== 1) {
+		throw new Error('Could not parse result of `pnpm list --json`' + raw);
+	}
+
+	const usingPackagedDependencies = Array.isArray(packagedDependencies);
+	const trees = _.values(JSON.parse(match[0])[0].dependencies) as PnpmTreeNode[];
+
+	let result = (
+		await Promise.all(
+			trees.map(tree => asPnpmDependency(path.join(cwd, 'node_modules'), tree, !usingPackagedDependencies))
+		)
+	).filter(dep => !!dep);
+
+	if (usingPackagedDependencies) {
+		result = selectYarnDependencies(result, packagedDependencies);
+	}
+
+	return result;
+}
+
 async function getYarnProductionDependencies(cwd: string, packagedDependencies?: string[]): Promise<YarnDependency[]> {
 	const raw = await new Promise<string>((c, e) => cp.exec('yarn list --prod --json', { cwd, encoding: 'utf8', env: { ...process.env }, maxBuffer: 5000 * 1024 }, (err, stdout) => err ? e(err) : c(stdout)));
 	const match = /^{"type":"tree".*$/m.exec(raw);
@@ -179,8 +237,34 @@ async function getYarnDependencies(cwd: string, packagedDependencies?: string[])
 	return _.uniq(result);
 }
 
-export function getDependencies(cwd: string, useYarn = false, packagedDependencies?: string[]): Promise<string[]> {
-	return useYarn ? getYarnDependencies(cwd, packagedDependencies) : getNpmDependencies(cwd);
+async function getPnpmDependencies(cwd: string, packagedDependencies?: string[]): Promise<string[]> {
+	const result: string[] = [cwd];
+
+	if (await new Promise(c => fs.exists(path.join(cwd, 'pnpm-lock.yaml'), c))) {
+		const deps = await getPnpmProductionDependencies(cwd, packagedDependencies);
+		const flatten = (dep: YarnDependency) => { result.push(dep.path); dep.children.forEach(flatten); };
+		deps.forEach(flatten);
+	}
+
+	return _.uniq(result);
+}
+
+export function getDependencies(cwd: string, useYarn = false, usePackageManager: "yarn" | "npm" | "pnpm", packagedDependencies?: string[]): Promise<string[]> {
+	if(useYarn) {
+		return getYarnDependencies(cwd, packagedDependencies);
+	}
+	else if(usePackageManager == "npm") {
+		return getNpmDependencies(cwd);
+	}
+	else if(usePackageManager == "pnpm") {
+		return getPnpmDependencies(cwd, packagedDependencies);
+	}
+	else if(usePackageManager == "yarn") {
+		return getYarnDependencies(cwd, packagedDependencies);
+	}
+	else {
+		return getNpmDependencies(cwd);
+	}
 }
 
 export function getLatestVersion(name: string, cancellationToken?: CancellationToken): Promise<string> {

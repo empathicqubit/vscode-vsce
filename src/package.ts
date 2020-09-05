@@ -64,6 +64,7 @@ export interface IPackageOptions {
 	baseContentUrl?: string;
 	baseImagesUrl?: string;
 	useYarn?: boolean;
+	usePackageManager?: "yarn" | "npm" | "pnpm";
 	dependencyEntryPoints?: string[];
 	ignoreFile?: string;
 	expandGitHubIssueLinks?: boolean;
@@ -919,8 +920,8 @@ const defaultIgnore = [
 	'**/.vscode-test/**'
 ];
 
-function collectAllFiles(cwd: string, useYarn = false, dependencyEntryPoints?: string[]): Promise<string[]> {
-	return getDependencies(cwd, useYarn, dependencyEntryPoints).then(deps => {
+function collectAllFiles(cwd: string, useYarn = false, usePackageManager: "yarn" | "npm" | "pnpm" = "npm", dependencyEntryPoints?: string[]): Promise<string[]> {
+	return getDependencies(cwd, useYarn, usePackageManager, dependencyEntryPoints).then(deps => {
 		const promises: Promise<string[]>[] = deps.map(dep => {
 			return glob('**', { cwd: dep, nodir: true, dot: true, ignore: 'node_modules/**' })
 				.then(files => files
@@ -932,8 +933,8 @@ function collectAllFiles(cwd: string, useYarn = false, dependencyEntryPoints?: s
 	});
 }
 
-function collectFiles(cwd: string, useYarn = false, dependencyEntryPoints?: string[], ignoreFile?: string): Promise<string[]> {
-	return collectAllFiles(cwd, useYarn, dependencyEntryPoints).then(files => {
+function collectFiles(cwd: string, useYarn = false, usePackageManager: "yarn" | "npm" | "pnpm" = "npm", dependencyEntryPoints?: string[], ignoreFile?: string): Promise<string[]> {
+	return collectAllFiles(cwd, useYarn, usePackageManager, dependencyEntryPoints).then(files => {
 		files = files.filter(f => !/\r$/m.test(f));
 
 		return readFile(ignoreFile ? ignoreFile : path.join(cwd, '.vscodeignore'), 'utf8')
@@ -997,11 +998,12 @@ export function createDefaultProcessors(manifest: Manifest, options: IPackageOpt
 export function collect(manifest: Manifest, options: IPackageOptions = {}): Promise<IFile[]> {
 	const cwd = options.cwd || process.cwd();
 	const useYarn = options.useYarn || false;
+	const usePackageManager = options.usePackageManager || "npm";
 	const packagedDependencies = options.dependencyEntryPoints || undefined;
 	const ignoreFile = options.ignoreFile || undefined;
 	const processors = createDefaultProcessors(manifest, options);
 
-	return collectFiles(cwd, useYarn, packagedDependencies, ignoreFile).then(fileNames => {
+	return collectFiles(cwd, useYarn, usePackageManager, packagedDependencies, ignoreFile).then(fileNames => {
 		const files = fileNames.map(f => ({ path: `extension/${f}`, localPath: path.join(cwd, f) }));
 
 		return processFiles(processors, files);
@@ -1029,15 +1031,28 @@ function getDefaultPackageName(manifest: Manifest): string {
 	return `${manifest.name}-${manifest.version}.vsix`;
 }
 
-async function prepublish(cwd: string, manifest: Manifest, useYarn: boolean = false): Promise<void> {
+async function prepublish(cwd: string, manifest: Manifest, useYarn: boolean = false, usePackageManager: "yarn" | "npm" | "pnpm" = "npm"): Promise<void> {
 	if (!manifest.scripts || !manifest.scripts['vscode:prepublish']) {
 		return;
 	}
 
-	console.log(`Executing prepublish script '${useYarn ? 'yarn' : 'npm'} run vscode:prepublish'...`);
+	let tool = 'npm';
+	if(useYarn) {
+		tool = 'yarn'
+	}
+	else if(usePackageManager == "npm") {
+		tool = 'npm';
+	}
+	else if(usePackageManager == "pnpm") {
+		tool = 'pnpm';
+	}
+	else if(usePackageManager == "yarn") {
+		tool = 'yarn'
+	}
+
+	console.log(`Executing prepublish script '${tool} run vscode:prepublish'...`);
 
 	await new Promise((c, e) => {
-		const tool = useYarn ? 'yarn' : 'npm';
 		const child = cp.spawn(tool, ['run', 'vscode:prepublish'], { cwd, shell: true, stdio: 'inherit' });
 		child.on('exit', code => code === 0 ? c() : e(`${tool} failed with exit code ${code}`));
 		child.on('error', e);
@@ -1067,7 +1082,7 @@ export async function pack(options: IPackageOptions = {}): Promise<IPackageResul
 
 	const manifest = await readManifest(cwd);
 
-	await prepublish(cwd, manifest, options.useYarn);
+	await prepublish(cwd, manifest, options.useYarn, options.usePackageManager);
 
 	const files = await collect(manifest, options);
 	const jsFiles = files.filter(f => /\.js$/i.test(f.path));
@@ -1103,17 +1118,17 @@ export async function packageCommand(options: IPackageOptions = {}): Promise<any
 /**
  * Lists the files included in the extension's package. Does not run prepublish.
  */
-export function listFiles(cwd = process.cwd(), useYarn = false, packagedDependencies?: string[], ignoreFile?: string): Promise<string[]> {
+export function listFiles(cwd = process.cwd(), useYarn = false, usePackageManager: "yarn" | "npm" | "pnpm" = "npm", packagedDependencies?: string[], ignoreFile?: string): Promise<string[]> {
 	return readManifest(cwd)
-		.then(() => collectFiles(cwd, useYarn, packagedDependencies, ignoreFile));
+		.then(() => collectFiles(cwd, useYarn, usePackageManager, packagedDependencies, ignoreFile));
 }
 
 /**
  * Lists the files included in the extension's package. Runs prepublish.
  */
-export function ls(cwd = process.cwd(), useYarn = false, packagedDependencies?: string[], ignoreFile?: string): Promise<void> {
+export function ls(cwd = process.cwd(), useYarn = false, usePackageManager?: "yarn" | "npm" | "pnpm", packagedDependencies?: string[], ignoreFile?: string): Promise<void> {
 	return readManifest(cwd)
-		.then(manifest => prepublish(cwd, manifest, useYarn))
-		.then(() => collectFiles(cwd, useYarn, packagedDependencies, ignoreFile))
+		.then(manifest => prepublish(cwd, manifest, useYarn, usePackageManager))
+		.then(() => collectFiles(cwd, useYarn, usePackageManager, packagedDependencies, ignoreFile))
 		.then(files => files.forEach(f => console.log(`${f}`)));
 }

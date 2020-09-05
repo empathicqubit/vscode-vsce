@@ -30,6 +30,11 @@ export interface ICreateVSIXOptions {
 	 * Should use Yarn instead of NPM.
 	 */
 	useYarn?: boolean;
+
+	/**
+	 * Select the package manager to use
+	 */
+	usePackageManager?: "yarn" | "pnpm" | "npm";
 }
 
 export interface IPublishOptions {
@@ -62,6 +67,11 @@ export interface IPublishOptions {
 	 * Should use Yarn instead of NPM.
 	 */
 	useYarn?: boolean;
+
+	/**
+	 * Select the package manager to use
+	 */
+	usePackageManager?: "yarn" | "pnpm" | "npm";
 }
 
 /**
@@ -69,7 +79,8 @@ export interface IPublishOptions {
  */
 export enum PackageManager {
 	Npm,
-	Yarn
+	Yarn,
+	Pnpm,
 }
 
 export interface IListFilesOptions {
@@ -122,6 +133,11 @@ export interface IPublishVSIXOptions {
 	 * Should use Yarn instead of NPM.
 	 */
 	useYarn?: boolean;
+
+	/**
+	 * Select the package manager to use
+	 */
+	usePackageManager?: "yarn" | "pnpm" | "npm";
 }
 
 /**
@@ -142,7 +158,7 @@ export function publish(options: IPublishOptions = {}): Promise<any> {
  * Lists the files included in the extension's package.
  */
 export function listFiles(options: IListFilesOptions = {}): Promise<string[]> {
-	return _listFiles(options.cwd, options.packageManager === PackageManager.Yarn, options.packagedDependencies, options.ignoreFile);
+	return _listFiles(options.cwd, options.packageManager === PackageManager.Yarn, <any>({ [PackageManager.Yarn]: "yarn", [PackageManager.Npm]: "npm", [PackageManager.Pnpm]: "pnpm" }[options.packageManager]), options.packagedDependencies, options.ignoreFile);
 }
 
 /**

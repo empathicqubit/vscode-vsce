@@ -25,11 +25,11 @@
   },
   "scripts": {
     "copy-vsce": "mkdir -p out && cp src/vsce out/vsce",
-    "compile": "tsc && yarn copy-vsce",
-    "watch": "yarn copy-vsce && tsc --watch",
-    "watch-test": "yarn copy-vsce && concurrently \"tsc --watch\" \"mocha --watch\"",
+    "compile": "tsc && npm run copy-vsce",
+    "watch": "npm run copy-vsce && tsc --watch",
+    "watch-test": "npm run copy-vsce && concurrently \"tsc --watch\" \"mocha --watch\"",
     "test": "mocha",
-    "prepublishOnly": "tsc && yarn copy-vsce && mocha",
+    "prepublishOnly": "tsc && npm run copy-vsce && mocha",
     "vsce": "out/vsce"
   },
   "engines": {

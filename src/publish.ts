@@ -96,6 +96,7 @@ export interface IPublishOptions {
 	baseContentUrl?: string;
 	baseImagesUrl?: string;
 	useYarn?: boolean;
+	usePackageManager?: "yarn" | "npm" | "pnpm";
 	noVerify?: boolean;
 	ignoreFile?: string;
 	web?: boolean;

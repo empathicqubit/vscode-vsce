@@ -1,5 +1,5 @@
 {
-  "name": "vsce",
+  "name": "@entan.gl/vsce",
   "version": "1.79.5",
   "description": "VSCode Extension Manager",
   "repository": {

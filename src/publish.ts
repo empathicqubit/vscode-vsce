@@ -168,10 +168,11 @@ export function publish(options: IPublishOptions = {}): Promise<any> {
 		const useYarn = options.useYarn;
 		const ignoreFile = options.ignoreFile;
 		const web = options.web;
+		const usePackageManager = options.usePackageManager;
 
 		promise = versionBump(options.cwd, options.version, options.commitMessage)
 			.then(() => tmpName())
-			.then(packagePath => pack({ packagePath, cwd, githubBranch, baseContentUrl, baseImagesUrl, useYarn, ignoreFile, web }));
+			.then(packagePath => pack({ packagePath, cwd, githubBranch, baseContentUrl, baseImagesUrl, useYarn, ignoreFile, web, usePackageManager }));
 	}
 
 	return promise.then(async ({ manifest, packagePath }) => {

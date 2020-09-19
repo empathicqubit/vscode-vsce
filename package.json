@@ -1,6 +1,6 @@
 {
   "name": "@entan.gl/vsce",
-  "version": "1.79.5",
+  "version": "1.79.6",
   "description": "VSCode Extension Manager",
   "repository": {
     "type": "git",
